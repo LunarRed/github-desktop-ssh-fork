@@ -23,8 +23,9 @@ import {
 
 import { DiffParser } from '../diff-parser'
 import { getOldPathOrDefault } from '../get-old-path'
-import { readFile, writeFile, unlink } from 'fs/promises'
+import { writeFile, unlink } from 'fs/promises'
 import { getTempFilePath } from '../file-system'
+import { fileSystemFor } from '../repository-file-system'
 import { forceUnwrap } from '../fatal-error'
 import { git } from './core'
 import { NullTreeSHA } from './diff-index'
@@ -457,10 +458,10 @@ export async function getResolutionDiff(
   // markers). This gives a consistent baseline for all three resolution
   // choices (Copilot, current, incoming) so the user sees exactly what each
   // option changes relative to the file's current state on disk.
-  const baseContent = await readFile(
-    Path.join(repository.path, filePath),
+  const baseContent = (await fileSystemFor(repository.path).readFile(
+    filePath,
     'utf8'
-  )
+  )) as string
   let targetContent: string
 
   if (gitStage === undefined) {
@@ -802,7 +803,7 @@ async function buildSubmoduleDiff(
   status: SubmoduleStatus
 ): Promise<IDiff> {
   const path = file.path
-  const fullPath = Path.join(repository.path, path)
+  const fullPath = fileSystemFor(repository.path).path(path)
   const url = await getConfigValue(repository, `submodule.${path}.url`, true)
 
   let oldSHA = null
@@ -927,7 +928,7 @@ export async function getWorkingDirectoryImage(
   repository: Repository,
   file: FileChange
 ): Promise<Image> {
-  const contents = await readFile(Path.join(repository.path, file.path))
+  const contents = await fileSystemFor(repository.path).readFile(file.path)
   return new Image(
     contents.buffer,
     contents.toString('base64'),

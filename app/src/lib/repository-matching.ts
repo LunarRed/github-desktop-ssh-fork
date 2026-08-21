@@ -55,10 +55,20 @@ export function matchExistingRepository<T extends { readonly path: string }>(
   repos: ReadonlyArray<T>,
   path: string
 ): T | undefined {
-  // Windows is guaranteed to be case-insensitive so we can be a bit less strict
-  const normalize = __WIN32__
-    ? (p: string) => Path.normalize(p).toLowerCase()
-    : (p: string) => Path.normalize(p)
+  // Windows is guaranteed to be case-insensitive so we can be a bit less strict.
+  // SSH repository URLs must not go through Path.normalize — on Windows that
+  // rewrites `ssh://host/path` into `ssh:\host\path`.
+  const normalize = (p: string) => {
+    if (
+      p.startsWith('ssh://') ||
+      p.startsWith('ssh:\\') ||
+      p.startsWith('ssh:/')
+    ) {
+      return p.replace(/\\/g, '/').toLowerCase()
+    }
+
+    return __WIN32__ ? Path.normalize(p).toLowerCase() : Path.normalize(p)
+  }
 
   const needle = normalize(path)
   return repos.find(r => normalize(r.path) === needle)

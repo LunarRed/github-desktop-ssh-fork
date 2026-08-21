@@ -1,8 +1,6 @@
-import * as Path from 'path'
-import * as FS from 'fs'
 import { Repository } from '../../models/repository'
 import { getConfigValue } from './config'
-import { writeFile } from 'fs/promises'
+import { fileSystemFor } from '../repository-file-system'
 
 /**
  * Read the contents of the repository .gitignore.
@@ -14,21 +12,18 @@ import { writeFile } from 'fs/promises'
 export async function readGitIgnoreAtRoot(
   repository: Repository
 ): Promise<string | null> {
-  const ignorePath = Path.join(repository.path, '.gitignore')
-
-  return new Promise<string | null>((resolve, reject) => {
-    FS.readFile(ignorePath, 'utf8', (err, data) => {
-      if (err) {
-        if (err.code === 'ENOENT') {
-          resolve(null)
-        } else {
-          reject(err)
-        }
-      } else {
-        resolve(data)
-      }
-    })
-  })
+  try {
+    return await fileSystemFor(repository.path).readFile('.gitignore', 'utf8')
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      'code' in err &&
+      (err as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      return null
+    }
+    throw err
+  }
 }
 
 /**
@@ -41,22 +36,15 @@ export async function saveGitIgnore(
   repository: Repository,
   text: string
 ): Promise<void> {
-  const ignorePath = Path.join(repository.path, '.gitignore')
+  const fs = fileSystemFor(repository.path)
 
   if (text === '') {
-    return new Promise<void>((resolve, reject) => {
-      FS.unlink(ignorePath, err => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve()
-        }
-      })
-    })
+    await fs.unlink('.gitignore')
+    return
   }
 
   const fileContents = await formatGitIgnoreContents(text, repository)
-  await writeFile(ignorePath, fileContents)
+  await fs.writeFile('.gitignore', fileContents)
 }
 
 /** Add the given pattern or patterns to the root gitignore file */

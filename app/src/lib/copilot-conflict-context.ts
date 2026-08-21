@@ -1,4 +1,3 @@
-import { readFile, stat } from 'fs/promises'
 import { extname } from 'path'
 
 import { Repository } from '../models/repository'
@@ -6,6 +5,7 @@ import { Commit } from '../models/commit'
 import { getMergeBase } from './git/merge'
 import { getCommits } from './git/log'
 import { resolveWithin } from './path'
+import { fileSystemFor } from './repository-file-system'
 
 /** A single conflict hunk extracted from a file with conflict markers */
 export interface IConflictHunk {
@@ -410,7 +410,7 @@ export async function buildConflictContext(
       // a memory-safety bound only — resolvability is decided from the conflict
       // hunks below, not the whole-file size.
       try {
-        const fileStat = await stat(absolutePath)
+        const fileStat = await fileSystemFor(workingDirectory).stat(file.path)
         if (fileStat.size > MAX_CONFLICT_FILE_READ_SIZE) {
           return {
             path: file.path,
@@ -428,7 +428,10 @@ export async function buildConflictContext(
 
       let content: string
       try {
-        content = await readFile(absolutePath, 'utf8')
+        content = (await fileSystemFor(workingDirectory).readFile(
+          file.path,
+          'utf8'
+        )) as string
       } catch {
         return {
           path: file.path,

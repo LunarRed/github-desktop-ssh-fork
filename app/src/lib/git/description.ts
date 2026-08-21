@@ -1,5 +1,4 @@
-import * as Path from 'path'
-import { readFile, writeFile } from 'fs/promises'
+import { fileSystemFor } from '../repository-file-system'
 
 const GitDescriptionPath = '.git/description'
 
@@ -10,10 +9,11 @@ export const DefaultGitDescription =
 export async function getGitDescription(
   repositoryPath: string
 ): Promise<string> {
-  const path = Path.join(repositoryPath, GitDescriptionPath)
-
   try {
-    const data = await readFile(path, 'utf8')
+    const data = await fileSystemFor(repositoryPath).readFile(
+      GitDescriptionPath,
+      'utf8'
+    )
     if (data === DefaultGitDescription) {
       return ''
     }
@@ -28,6 +28,5 @@ export async function writeGitDescription(
   repositoryPath: string,
   description: string
 ): Promise<void> {
-  const fullPath = Path.join(repositoryPath, GitDescriptionPath)
-  await writeFile(fullPath, description)
+  await fileSystemFor(repositoryPath).writeFile(GitDescriptionPath, description)
 }

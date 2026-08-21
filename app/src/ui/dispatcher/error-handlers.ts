@@ -18,7 +18,7 @@ import {
 import { hasWritePermission } from '../../models/github-repository'
 import { RetryActionType } from '../../models/retry-actions'
 import { parseFilesToBeOverwritten } from '../lib/parse-files-to-be-overwritten'
-import { pathExists } from '../../lib/path-exists'
+import { fileSystemFor } from '../../lib/repository-file-system'
 import {
   ISecretLocation,
   ISecretScanResult,
@@ -111,7 +111,7 @@ export async function missingRepositoryHandler(
   const gitError = asGitError(e.underlyingError)
   const missing =
     (gitError && gitError.result.gitError === DugiteError.NotAGitRepository) ||
-    (errorWithCode && !(await pathExists(repository.path)))
+    (errorWithCode && !(await fileSystemFor(repository.path).exists('.')))
 
   if (missing) {
     await dispatcher.updateRepositoryMissing(repository, true)

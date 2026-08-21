@@ -1,6 +1,5 @@
 import { trampolineServer } from './trampoline-server'
 import { withTrampolineToken } from './trampoline-tokens'
-import * as Path from 'path'
 import { getSSHEnvironment } from '../ssh/ssh'
 import {
   deleteMostRecentSSHCredential,
@@ -9,7 +8,6 @@ import {
 import { GitError as DugiteError, exec } from 'dugite'
 import memoizeOne from 'memoize-one'
 import { GitError, getDescriptionForError } from '../git/core'
-import { getDesktopAskpassTrampolineFilename } from 'desktop-trampoline'
 
 const hasRejectedCredentialsForEndpoint = new Map<string, Set<string>>()
 
@@ -205,17 +203,3 @@ const isSSHAuthFailure = (e: unknown): e is GitError =>
   e instanceof GitError &&
   (e.result.gitError === DugiteError.SSHAuthenticationFailed ||
     e.result.gitError === DugiteError.SSHPermissionDenied)
-
-/** Returns the path of the desktop-askpass-trampoline binary. */
-export function getDesktopAskpassTrampolinePath(): string {
-  return Path.resolve(
-    __dirname,
-    'desktop-trampoline',
-    getDesktopAskpassTrampolineFilename()
-  )
-}
-
-/** Returns the path of the ssh-wrapper binary. */
-export function getSSHWrapperPath(): string {
-  return Path.resolve(__dirname, 'desktop-trampoline', 'ssh-wrapper')
-}

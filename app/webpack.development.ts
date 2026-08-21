@@ -33,7 +33,7 @@ const getPortOrDefault = () => {
     return result
   }
 
-  return 3000
+  return 4242
 }
 
 const port = getPortOrDefault()

@@ -1,10 +1,13 @@
 import * as React from 'react'
-import { join } from 'path'
 import { Dialog, DialogContent, DialogFooter } from '../../dialog'
 import { DialogHeader } from '../../dialog/header'
 import { Dispatcher } from '../../dispatcher'
 import { Emoji } from '../../../lib/emoji'
 import { Repository } from '../../../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../../../lib/repository-file-system'
 import { MultiCommitOperationStepKind } from '../../../models/multi-commit-operation'
 import { MultiCommitOperationConflictState } from '../../../lib/app-state'
 import {
@@ -211,7 +214,7 @@ export class CopilotConflictsDialog extends React.Component<
 
   private onOverflowMenuClick = (path: string) => {
     const { repository, dispatcher, resolvedExternalEditor } = this.props
-    const absolutePath = join(repository.path, path)
+    const absolutePath = repositoryFilePath(repository.path, path)
 
     const items: IMenuItem[] = []
 
@@ -222,14 +225,18 @@ export class CopilotConflictsDialog extends React.Component<
       })
     }
 
+    const { capabilities } = fileSystemFor(repository.path)
+
     items.push(
       {
         label: OpenWithDefaultProgramLabel,
         action: () => openFile(absolutePath, dispatcher),
+        enabled: capabilities.defaultProgram || capabilities.externalEditor,
       },
       {
         label: RevealInFileManagerLabel,
         action: () => revealInFileManager(repository, path),
+        enabled: capabilities.fileManager,
       }
     )
 

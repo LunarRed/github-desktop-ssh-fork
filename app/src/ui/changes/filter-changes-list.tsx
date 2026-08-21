@@ -17,6 +17,10 @@ import {
   isRepositoryWithGitHubRepository,
   Repository,
 } from '../../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../../lib/repository-file-system'
 import { Account } from '../../models/account'
 import { Author, UnknownAuthor } from '../../models/author'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
@@ -584,7 +588,10 @@ export class FilterChangesList extends React.Component<
     return {
       label: CopyFilePathLabel,
       action: () => {
-        const fullPath = Path.join(this.props.repository.path, file.path)
+        const fullPath = repositoryFilePath(
+          this.props.repository.path,
+          file.path
+        )
         clipboard.writeText(fullPath)
       },
     }
@@ -606,7 +613,7 @@ export class FilterChangesList extends React.Component<
       label: CopySelectedPathsLabel,
       action: () => {
         const fullPaths = files.map(file =>
-          Path.join(this.props.repository.path, file.path)
+          repositoryFilePath(this.props.repository.path, file.path)
         )
         clipboard.writeText(fullPaths.join(EOL))
       },
@@ -631,7 +638,9 @@ export class FilterChangesList extends React.Component<
     return {
       label: RevealInFileManagerLabel,
       action: () => revealInFileManager(this.props.repository, file.path),
-      enabled: file.status.kind !== AppFileStatusKind.Deleted,
+      enabled:
+        fileSystemFor(this.props.repository.path).capabilities.fileManager &&
+        file.status.kind !== AppFileStatusKind.Deleted,
     }
   }
 
@@ -788,6 +797,7 @@ export class FilterChangesList extends React.Component<
     }
 
     const enabled = status.kind !== AppFileStatusKind.Deleted
+    const { capabilities } = fileSystemFor(this.props.repository.path)
     items.push(
       { type: 'separator' },
       this.getRevealInFileManagerMenuItem(file),
@@ -795,7 +805,10 @@ export class FilterChangesList extends React.Component<
       {
         label: OpenWithDefaultProgramLabel,
         action: () => this.props.onOpenItem(path),
-        enabled: enabled && isSafeExtension,
+        enabled:
+          (capabilities.defaultProgram || capabilities.externalEditor) &&
+          enabled &&
+          isSafeExtension,
       }
     )
 
@@ -829,7 +842,11 @@ export class FilterChangesList extends React.Component<
       {
         label: OpenWithDefaultProgramLabel,
         action: () => this.props.onOpenItem(path),
-        enabled: enabled && isSafeExtension,
+        enabled:
+          fileSystemFor(this.props.repository.path).capabilities
+            .defaultProgram &&
+          enabled &&
+          isSafeExtension,
       }
     )
 

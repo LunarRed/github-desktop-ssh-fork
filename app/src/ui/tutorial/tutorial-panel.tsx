@@ -1,8 +1,8 @@
 import * as React from 'react'
-import { join } from 'path'
 import { LinkButton } from '../lib/link-button'
 import { Button } from '../lib/button'
 import { Repository } from '../../models/repository'
+import { repositoryFilePath } from '../../lib/repository-file-system'
 import { Dispatcher } from '../dispatcher'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
@@ -59,7 +59,7 @@ export class TutorialPanel extends React.Component<
     this.props.dispatcher.openInExternalEditor(
       // TODO: tie this filename to a shared constant
       // for tutorial repos
-      join(this.props.repository.path, 'README.md')
+      repositoryFilePath(this.props.repository.path, 'README.md')
     )
   }
 

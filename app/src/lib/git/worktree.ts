@@ -1,7 +1,7 @@
 import * as Path from 'path'
 import type { Repository } from '../../models/repository'
 import type { WorktreeEntry, WorktreeType } from '../../models/worktree'
-import { pathExists } from '../path-exists'
+import { fileSystemFor } from '../repository-file-system'
 import { git } from './core'
 
 export function parseWorktreePorcelainOutput(
@@ -100,7 +100,10 @@ export async function resolveMainWorktreePath(
   // A recorded path can outlive the location it names, so treat it as a hint
   // rather than the answer — otherwise a stale one would suppress the lookup
   // below, which may well still work.
-  if (mainWorktreePath !== undefined && (await pathExists(mainWorktreePath))) {
+  if (
+    mainWorktreePath !== undefined &&
+    (await fileSystemFor(mainWorktreePath).exists('.'))
+  ) {
     return mainWorktreePath
   }
 

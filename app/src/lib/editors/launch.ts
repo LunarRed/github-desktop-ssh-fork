@@ -6,6 +6,9 @@ import {
   ICustomIntegration,
   parseCustomIntegrationArguments,
 } from '../custom-integration'
+import { sshDirectoryExists } from '../ssh/ssh-fs'
+import { editorSupportsSshRemote, getSshEditorUri } from '../ssh/ssh-shell'
+import { parseSshRepositoryPath } from '../ssh/ssh-path'
 
 async function launchEditor(
   editorPath: string,
@@ -58,8 +61,31 @@ async function launchEditor(
  * @param fullPath A folder or file path to pass as an argument when launching the editor.
  * @param editor The external editor to launch.
  */
-export const launchExternalEditor = (fullPath: string, editor: FoundEditor) =>
-  launchEditor(editor.path, [fullPath], `'${editor.editor}'`, __DARWIN__)
+export const launchExternalEditor = async (
+  fullPath: string,
+  editor: FoundEditor
+) => {
+  const sshLocation = parseSshRepositoryPath(fullPath)
+  if (sshLocation !== null) {
+    if (!editorSupportsSshRemote(editor.editor)) {
+      throw new ExternalEditorError(
+        `${editor.editor} cannot open a folder on an SSH host. Use Visual Studio Code, Cursor, or VSCodium, or open a terminal over SSH instead.`,
+        { openPreferences: true }
+      )
+    }
+
+    const isDirectory = await sshDirectoryExists(fullPath)
+    const flag = isDirectory ? '--folder-uri' : '--file-uri'
+    return launchEditor(
+      editor.path,
+      [flag, getSshEditorUri(sshLocation)],
+      `'${editor.editor}'`,
+      __DARWIN__
+    )
+  }
+
+  return launchEditor(editor.path, [fullPath], `'${editor.editor}'`, __DARWIN__)
+}
 
 /**
  * Open a given file or folder in the desired custom external editor.
@@ -67,14 +93,18 @@ export const launchExternalEditor = (fullPath: string, editor: FoundEditor) =>
  * @param fullPath A folder or file path to pass as an argument when launching the editor.
  * @param customEditor The external editor to launch.
  */
-export const launchCustomExternalEditor = (
+export const launchCustomExternalEditor = async (
   fullPath: string,
   customEditor: ICustomIntegration
 ) => {
+  const sshLocation = parseSshRepositoryPath(fullPath)
+  const editorTarget =
+    sshLocation !== null ? getSshEditorUri(sshLocation) : fullPath
+
   const argv = parseCustomIntegrationArguments(customEditor.arguments)
 
   // Replace instances of RepoPathArgument with fullPath in customEditor.arguments
-  const args = expandTargetPathArgument(argv, fullPath)
+  const args = expandTargetPathArgument(argv, editorTarget)
 
   // In macOS we can use `open` if it's an app (i.e. if we have a bundleID),
   // which will open the right executable file for us, we only need the path

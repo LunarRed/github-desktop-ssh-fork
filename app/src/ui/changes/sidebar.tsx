@@ -1,4 +1,3 @@
-import * as Path from 'path'
 import * as React from 'react'
 
 import { DiffSelectionType } from '../../models/diff'
@@ -10,6 +9,7 @@ import {
   CommitOptions,
 } from '../../lib/app-state'
 import { Repository } from '../../models/repository'
+import { repositoryFilePath } from '../../lib/repository-file-system'
 import { Dispatcher } from '../dispatcher'
 import { IssuesStore, GitHubUserStore } from '../../lib/stores'
 import { CommitIdentity } from '../../models/commit-identity'
@@ -280,7 +280,7 @@ export class ChangesSidebar extends React.Component<IChangesSidebarProps, {}> {
    * @param path The path of the file relative to the root of the repository
    */
   private onOpenItem = (path: string) => {
-    const fullPath = Path.join(this.props.repository.path, path)
+    const fullPath = repositoryFilePath(this.props.repository.path, path)
     openFile(fullPath, this.props.dispatcher)
   }
   /**

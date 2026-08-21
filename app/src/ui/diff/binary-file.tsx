@@ -1,7 +1,7 @@
 import * as React from 'react'
-import * as Path from 'path'
 
 import { Repository } from '../../models/repository'
+import { repositoryFilePath } from '../../lib/repository-file-system'
 
 import { LinkButton } from '../lib/link-button'
 
@@ -18,7 +18,10 @@ interface IBinaryFileProps {
 /** represents the default view for a file that we cannot render a diff for */
 export class BinaryFile extends React.Component<IBinaryFileProps, {}> {
   private open = () => {
-    const fullPath = Path.join(this.props.repository.path, this.props.path)
+    const fullPath = repositoryFilePath(
+      this.props.repository.path,
+      this.props.path
+    )
     this.props.onOpenBinaryFile(fullPath)
   }
 

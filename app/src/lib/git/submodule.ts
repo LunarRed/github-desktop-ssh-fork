@@ -1,7 +1,6 @@
 import { git, IGitStringExecutionOptions } from './core'
 import { Repository } from '../../models/repository'
 import { SubmoduleEntry } from '../../models/submodule'
-import { pathExists } from '../path-exists'
 import { executionOptionsWithProgress, IGitOutput } from '../progress'
 import {
   envForRemoteOperation,
@@ -10,8 +9,7 @@ import {
 import { AuthenticationErrors } from './authentication'
 import { IRemote } from '../../models/remote'
 import { Progress } from '../../models/progress'
-import { join, resolve } from 'path'
-import { readFile } from 'fs/promises'
+import { fileSystemFor } from '../repository-file-system'
 
 /**
  * Update submodules after a git operation.
@@ -127,9 +125,10 @@ export async function updateSubmodulesAfterOperation<T extends Progress>(
 export async function listSubmodules(
   repository: Repository
 ): Promise<ReadonlyArray<SubmoduleEntry>> {
+  const fs = fileSystemFor(repository.path)
   const [submodulesFile, submodulesDir] = await Promise.all([
-    pathExists(join(repository.path, '.gitmodules')),
-    pathExists(join(repository.path, '.git', 'modules')),
+    fs.exists('.gitmodules'),
+    fs.directoryExists('.git/modules'),
   ])
 
   if (!submodulesFile && !submodulesDir) {
@@ -140,13 +139,14 @@ export async function listSubmodules(
     // existence of submodules in this repo. We're reading the commondir file
     // ourselves here instead of calling out to git to avoid the cost of
     // spawning a process on Windows
-    const commonDirPath = join(repository.resolvedGitDir, 'commondir')
-    const commonDir = await readFile(commonDirPath, 'utf8')
+    const gitDirFs = fileSystemFor(repository.resolvedGitDir)
+    const commonDir = await gitDirFs
+      .readFile('commondir', 'utf8')
       .then(content => content.replace(/\r?\n$/, ''))
-      .then(p => (p ? resolve(repository.resolvedGitDir, p) : null))
+      .then(p => (p ? gitDirFs.resolve(p) : null))
       .catch(() => null)
 
-    if (!commonDir || !(await pathExists(join(commonDir, 'modules')))) {
+    if (!commonDir || !(await fileSystemFor(commonDir).exists('modules'))) {
       log.info('No submodules found. Skipping "git submodule status"')
       return []
     }

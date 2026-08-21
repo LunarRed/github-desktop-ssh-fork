@@ -2,6 +2,10 @@ import * as React from 'react'
 import * as Path from 'path'
 import { IDiff, ImageDiffType } from '../../models/diff'
 import { Repository } from '../../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../../lib/repository-file-system'
 import { CommittedFileChange } from '../../models/status'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { Dispatcher } from '../dispatcher'
@@ -9,7 +13,6 @@ import { openFile } from '../lib/open-file'
 import { Resizable } from '../resizable'
 import { FileList } from '../history/file-list'
 import { IMenuItem, showContextualMenu } from '../../lib/menu-item'
-import { pathExists } from '../../lib/path-exists'
 import {
   CopyFilePathLabel,
   CopyRelativeFilePathLabel,
@@ -84,7 +87,7 @@ export class PullRequestFilesChanged extends React.Component<
   }
 
   private onOpenFile = (path: string) => {
-    const fullPath = Path.join(this.props.repository.path, path)
+    const fullPath = repositoryFilePath(this.props.repository.path, path)
     this.onOpenBinaryFile(fullPath)
   }
 
@@ -159,8 +162,10 @@ export class PullRequestFilesChanged extends React.Component<
 
     const { repository } = this.props
 
-    const fullPath = Path.join(repository.path, file.path)
-    const fileExistsOnDisk = await pathExists(fullPath)
+    const fileExistsOnDisk = await fileSystemFor(repository.path).exists(
+      file.path
+    )
+    const fullPath = repositoryFilePath(repository.path, file.path)
     if (!fileExistsOnDisk) {
       showContextualMenu([
         {
@@ -181,12 +186,13 @@ export class PullRequestFilesChanged extends React.Component<
       externalEditorLabel !== undefined
         ? `Open in ${externalEditorLabel}`
         : DefaultEditorLabel
+    const { capabilities } = fileSystemFor(repository.path)
 
     const items: IMenuItem[] = [
       {
         label: RevealInFileManagerLabel,
         action: () => revealInFileManager(repository, file.path),
-        enabled: fileExistsOnDisk,
+        enabled: capabilities.fileManager && fileExistsOnDisk,
       },
       {
         label: openInExternalEditor,
@@ -196,7 +202,10 @@ export class PullRequestFilesChanged extends React.Component<
       {
         label: OpenWithDefaultProgramLabel,
         action: () => this.onOpenFile(file.path),
-        enabled: isSafeExtension && fileExistsOnDisk,
+        enabled:
+          (capabilities.defaultProgram || capabilities.externalEditor) &&
+          isSafeExtension &&
+          fileExistsOnDisk,
       },
       { type: 'separator' },
       {

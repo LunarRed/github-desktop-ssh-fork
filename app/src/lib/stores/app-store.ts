@@ -1,5 +1,4 @@
 import * as Path from 'path'
-import { writeFile } from 'fs/promises'
 import {
   AccountsStore,
   CloningRepositoriesStore,
@@ -381,6 +380,8 @@ import {
 } from '../../models/multi-commit-operation'
 import { reorder } from '../git/reorder'
 import { UseWindowsOpenSSHKey } from '../ssh/ssh'
+import { isSshRepositoryPath } from '../ssh/ssh-path'
+import { launchSshSession } from '../ssh/ssh-shell'
 import { isConflictsFlow } from '../multi-commit-operation'
 import { clamp } from '../clamp'
 import { EndpointToken } from '../endpoint-token'
@@ -390,7 +391,7 @@ import {
   getNotificationsEnabled,
 } from './notifications-store'
 import * as ipcRenderer from '../ipc-renderer'
-import { pathExists } from '../path-exists'
+import { fileSystemFor } from '../repository-file-system'
 import { offsetFromNow } from '../offset-from'
 import { findContributionTargetDefaultBranch } from '../branch'
 import { ValidNotificationPullRequestReview } from '../valid-notification-pull-request-review'
@@ -684,8 +685,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** The function to resolve the current Open in Desktop flow. */
   private resolveOpenInDesktop:
-    | ((repository: Repository | null) => void)
-    | null = null
+    ((repository: Repository | null) => void) | null = null
 
   private selectedCloneRepositoryTab = CloneRepositoryTab.DotCom
 
@@ -721,8 +721,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private popupManager = new PopupManager()
 
   private pullRequestSuggestedNextAction:
-    | PullRequestSuggestedNextAction
-    | undefined = undefined
+    PullRequestSuggestedNextAction | undefined = undefined
 
   private showDiffCheckMarks: boolean = showDiffCheckMarksDefault
 
@@ -3862,8 +3861,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
   public _changeFileIncluded(
     repository: Repository,
     file:
-      | WorkingDirectoryFileChange
-      | ReadonlyArray<WorkingDirectoryFileChange>,
+      WorkingDirectoryFileChange | ReadonlyArray<WorkingDirectoryFileChange>,
     include: boolean
   ): Promise<void> {
     const files = Array.isArray(file) ? file : [file]
@@ -4050,9 +4048,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return
     }
 
-    // if the repository path doesn't exist on disk,
+    // if the repository path doesn't exist (locally or on the remote host),
     // set the flag and don't try anything Git-related
-    const exists = await pathExists(repository.path)
+    const exists = await fileSystemFor(repository.path).exists('.')
     if (!exists) {
       const recoveredWorktree = await this.recoverMissingWorktree(repository)
 
@@ -4197,7 +4195,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       return
     }
 
-    const exists = await pathExists(repository.path)
+    const exists = await fileSystemFor(repository.path).exists('.')
     if (!exists) {
       lookup.delete(repository.id)
       return
@@ -5613,9 +5611,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   private async fastForwardBranches(repository: Repository) {
     try {
-      const eligibleBranches = await getBranchesDifferingFromUpstream(
-        repository
-      )
+      const eligibleBranches =
+        await getBranchesDifferingFromUpstream(repository)
 
       await fastForwardBranches(repository, eligibleBranches)
     } catch (e) {
@@ -6773,9 +6770,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     try {
-      const allPRs = await this.pullRequestCoordinator.getAllPullRequests(
-        repository
-      )
+      const allPRs =
+        await this.pullRequestCoordinator.getAllPullRequests(repository)
       for (const pr of findPullRequestsByNumbers(lookups, allPRs)) {
         byNumber.set(pr.pullRequestNumber, {
           number: pr.pullRequestNumber,
@@ -7220,8 +7216,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
               ? ManualConflictResolution.theirs
               : ManualConflictResolution.ours
             : deletedSide === 'ours'
-            ? ManualConflictResolution.ours
-            : ManualConflictResolution.theirs
+              ? ManualConflictResolution.ours
+              : ManualConflictResolution.theirs
         this._updateManualConflictResolution(
           repository,
           resolution.path,
@@ -7255,7 +7251,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
         continue
       }
 
-      await writeFile(absolutePath, resolution.resolvedContent, 'utf8')
+      await fileSystemFor(repository.path).writeFile(
+        resolution.path,
+        resolution.resolvedContent,
+        'utf8'
+      )
       pathsToStage.push(resolution.path)
     }
 
@@ -7578,6 +7578,11 @@ export class AppStore extends TypedBaseStore<IAppState> {
     const { useCustomShell, customShell } = this.getState()
 
     try {
+      if (isSshRepositoryPath(path)) {
+        await launchSshSession(path)
+        return
+      }
+
       if (useCustomShell && customShell) {
         await launchCustomShell(customShell, path, error =>
           this._pushError(error)
@@ -8297,9 +8302,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // association is out of date. So try again before we bail on providing an
     // authenticating user.
     if (!account) {
-      updatedRepository = await this.repositoryWithRefreshedGitHubRepository(
-        repository
-      )
+      updatedRepository =
+        await this.repositoryWithRefreshedGitHubRepository(repository)
     }
 
     return fn(updatedRepository)

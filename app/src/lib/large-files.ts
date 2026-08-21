@@ -1,8 +1,7 @@
 import { WorkingDirectoryStatus } from '../models/status'
 import { DiffSelectionType } from '../models/diff'
 import { Repository } from '../models/repository'
-import { stat } from 'fs/promises'
-import { join } from 'path'
+import { fileSystemFor } from './repository-file-system'
 
 const ReceiveLimit = 100 * 1024 * 1024 // 100 MiB
 
@@ -24,17 +23,17 @@ export async function getLargeFilePaths(
   const includedFiles = workingDirectoryFiles.filter(
     file => file.selection.getSelectionType() !== DiffSelectionType.None
   )
+  const fs = fileSystemFor(repository.path)
 
   for (const file of includedFiles) {
-    const filePath = join(repository.path, file.path)
     try {
-      const fileStatus = await stat(filePath)
+      const fileStatus = await fs.stat(file.path)
       const fileSizeBytes = fileStatus.size
       if (fileSizeBytes > ReceiveLimit) {
         fileNames.push(file.path)
       }
     } catch (error) {
-      log.debug(`Unable to get the file size for ${filePath}`, error)
+      log.debug(`Unable to get the file size for ${file.path}`, error)
     }
   }
 

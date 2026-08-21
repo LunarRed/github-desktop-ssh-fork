@@ -1,6 +1,11 @@
 import * as Path from 'path'
 import { realpath } from 'fs/promises'
 import { pathToFileURL } from 'url'
+import {
+  isSshRepositoryPath,
+  parseSshRepositoryPath,
+  resolveRepositoryPath,
+} from './ssh/ssh-path'
 
 /**
  * Resolve and encode the path information into a URL.
@@ -96,6 +101,22 @@ export function resolveWithin(
   rootPath: string,
   ...pathSegments: string[]
 ): Promise<string | null> {
+  if (isSshRepositoryPath(rootPath)) {
+    const resolved = resolveRepositoryPath(rootPath, ...pathSegments)
+    const root = parseSshRepositoryPath(rootPath)
+    const child = parseSshRepositoryPath(resolved)
+    if (root === null || child === null || child.host !== root.host) {
+      return Promise.resolve(null)
+    }
+
+    const relative = Path.posix.relative(root.path, child.path)
+    if (relative.startsWith('..') || Path.posix.isAbsolute(relative)) {
+      return Promise.resolve(null)
+    }
+
+    return Promise.resolve(resolved)
+  }
+
   return _resolveWithin(rootPath, pathSegments)
 }
 

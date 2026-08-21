@@ -1,5 +1,4 @@
 import * as React from 'react'
-import * as Path from 'path'
 import { AppFileStatusKind, CommittedFileChange } from '../../../models/status'
 import { IDiff, ImageDiffType } from '../../../models/diff'
 import { WorkingDirectoryFileChange } from '../../../models/status'
@@ -9,6 +8,7 @@ import { FileList } from '../../history/file-list'
 import { SeamlessDiffSwitcher } from '../../diff/seamless-diff-switcher'
 import { DiffOptions } from '../../diff/diff-options'
 import { Repository } from '../../../models/repository'
+import { repositoryFilePath } from '../../../lib/repository-file-system'
 import { Dispatcher } from '../../dispatcher'
 import { openFile } from '../../lib/open-file'
 import { getResolutionDiff, IResolutionDiff } from '../../../lib/git'
@@ -282,7 +282,7 @@ export class CopilotConflictsChanges extends React.Component<
   private onRowDoubleClick = (row: number) => {
     const file = this.getCommittedFiles()[row]
     if (file !== undefined) {
-      const fullPath = Path.join(this.props.repository.path, file.path)
+      const fullPath = repositoryFilePath(this.props.repository.path, file.path)
       openFile(fullPath, this.props.dispatcher)
     }
   }

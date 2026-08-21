@@ -2,6 +2,7 @@ import { Repository } from '../../models/repository'
 import { IMenuItem } from '../../lib/menu-item'
 import { Repositoryish } from './group-repositories'
 import { clipboard } from 'electron'
+import { fileSystemFor } from '../../lib/repository-file-system'
 import {
   RevealInFileManagerLabel,
   DefaultEditorLabel,
@@ -63,7 +64,8 @@ export const generateRepositoryListContextMenu = (
     {
       label: RevealInFileManagerLabel,
       action: () => config.onShowRepository(repository),
-      enabled: !missing,
+      enabled:
+        !missing && fileSystemFor(repository.path).capabilities.fileManager,
     },
     {
       label: openInExternalEditor,

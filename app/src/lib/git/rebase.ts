@@ -28,9 +28,7 @@ import { stageFiles } from './update-index'
 import { getStatus } from './status'
 import { getCommitsBetweenCommits } from './rev-list'
 import { Branch } from '../../models/branch'
-import { join } from 'path'
-import { readFile } from 'fs/promises'
-import { pathExists } from '../path-exists'
+import { fileSystemFor } from '../repository-file-system'
 
 /** The app-specific results from attempting to rebase a repository */
 export enum RebaseResult {
@@ -73,8 +71,7 @@ export enum RebaseResult {
  * a rebase operation is underway.
  */
 function isRebaseHeadSet(repository: Repository) {
-  const path = join(repository.resolvedGitDir, 'REBASE_HEAD')
-  return pathExists(path)
+  return fileSystemFor(repository.resolvedGitDir).exists('REBASE_HEAD')
 }
 
 /**
@@ -98,27 +95,23 @@ export async function getRebaseInternalState(
   let targetBranch: string | null = null
   let baseBranchTip: string | null = null
 
+  const gitDirFs = fileSystemFor(repository.resolvedGitDir)
+
   try {
-    originalBranchTip = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'orig-head'),
+    originalBranchTip = await gitDirFs.readFile(
+      'rebase-merge/orig-head',
       'utf8'
     )
 
     originalBranchTip = originalBranchTip.trim()
 
-    targetBranch = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'head-name'),
-      'utf8'
-    )
+    targetBranch = await gitDirFs.readFile('rebase-merge/head-name', 'utf8')
 
     if (targetBranch.startsWith('refs/heads/')) {
       targetBranch = targetBranch.substring(11).trim()
     }
 
-    baseBranchTip = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'onto'),
-      'utf8'
-    )
+    baseBranchTip = await gitDirFs.readFile('rebase-merge/onto', 'utf8')
 
     baseBranchTip = baseBranchTip.trim()
   } catch {}
@@ -165,12 +158,11 @@ export async function getRebaseSnapshot(repository: Repository): Promise<{
   // contain all the patches of commits that are being rebased into
   // auto-incrementing files, e.g. `0001`, `0002`, `0003`, etc ...
 
+  const gitDirFs = fileSystemFor(repository.resolvedGitDir)
+
   try {
     // this contains the patch number that was recently applied to the repository
-    const nextText = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'msgnum'),
-      'utf8'
-    )
+    const nextText = await gitDirFs.readFile('rebase-merge/msgnum', 'utf8')
 
     next = parseInt(nextText, 10)
 
@@ -182,10 +174,7 @@ export async function getRebaseSnapshot(repository: Repository): Promise<{
     }
 
     // this contains the total number of patches to be applied to the repository
-    const lastText = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'end'),
-      'utf8'
-    )
+    const lastText = await gitDirFs.readFile('rebase-merge/end', 'utf8')
 
     last = parseInt(lastText, 10)
 
@@ -196,17 +185,14 @@ export async function getRebaseSnapshot(repository: Repository): Promise<{
       last = -1
     }
 
-    originalBranchTip = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'orig-head'),
+    originalBranchTip = await gitDirFs.readFile(
+      'rebase-merge/orig-head',
       'utf8'
     )
 
     originalBranchTip = originalBranchTip.trim()
 
-    baseBranchTip = await readFile(
-      join(repository.resolvedGitDir, 'rebase-merge', 'onto'),
-      'utf8'
-    )
+    baseBranchTip = await gitDirFs.readFile('rebase-merge/onto', 'utf8')
 
     baseBranchTip = baseBranchTip.trim()
   } catch {}
@@ -263,8 +249,9 @@ export async function getRebaseSnapshot(repository: Repository): Promise<{
  */
 async function readRebaseHead(repository: Repository): Promise<string | null> {
   try {
-    const rebaseHead = join(repository.resolvedGitDir, 'REBASE_HEAD')
-    const rebaseCurrentCommitOutput = await readFile(rebaseHead, 'utf8')
+    const rebaseCurrentCommitOutput = await fileSystemFor(
+      repository.resolvedGitDir
+    ).readFile('REBASE_HEAD', 'utf8')
     return rebaseCurrentCommitOutput.trim()
   } catch (err) {
     log.warn(

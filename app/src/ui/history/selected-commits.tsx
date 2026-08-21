@@ -3,6 +3,10 @@ import { clipboard } from 'electron'
 import * as Path from 'path'
 
 import { Repository } from '../../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../../lib/repository-file-system'
 import { CommittedFileChange } from '../../models/status'
 import { Commit } from '../../models/commit'
 import { IDiff, ImageDiffType } from '../../models/diff'
@@ -32,7 +36,6 @@ import { IMenuItem } from '../../lib/menu-item'
 import { IChangesetData } from '../../lib/git'
 import { IConstrainedValue } from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
-import { pathExists } from '../../lib/path-exists'
 import { UnreachableCommitsTab } from './unreachable-commits-dialog'
 import { ExpandableCommitSummary } from './expandable-commit-summary'
 import { DiffHeader } from '../diff/diff-header'
@@ -290,7 +293,7 @@ export class SelectedCommits extends React.Component<
    * @param path The path of the file relative to the root of the repository
    */
   private onOpenItem = (path: string) => {
-    const fullPath = Path.join(this.props.repository.path, path)
+    const fullPath = repositoryFilePath(this.props.repository.path, path)
     openFile(fullPath, this.props.dispatcher)
   }
 
@@ -381,8 +384,10 @@ export class SelectedCommits extends React.Component<
       externalEditorLabel,
     } = this.props
 
-    const fullPath = Path.join(repository.path, file.path)
-    const fileExistsOnDisk = await pathExists(fullPath)
+    const fileExistsOnDisk = await fileSystemFor(repository.path).exists(
+      file.path
+    )
+    const fullPath = repositoryFilePath(repository.path, file.path)
     if (!fileExistsOnDisk) {
       showContextualMenu([
         {
@@ -401,12 +406,13 @@ export class SelectedCommits extends React.Component<
     const openInExternalEditor = externalEditorLabel
       ? `Open in ${externalEditorLabel}`
       : DefaultEditorLabel
+    const { capabilities } = fileSystemFor(repository.path)
 
     const items: IMenuItem[] = [
       {
         label: RevealInFileManagerLabel,
         action: () => revealInFileManager(repository, file.path),
-        enabled: fileExistsOnDisk,
+        enabled: capabilities.fileManager && fileExistsOnDisk,
       },
       {
         label: openInExternalEditor,
@@ -416,7 +422,10 @@ export class SelectedCommits extends React.Component<
       {
         label: OpenWithDefaultProgramLabel,
         action: () => this.onOpenItem(file.path),
-        enabled: isSafeExtension && fileExistsOnDisk,
+        enabled:
+          (capabilities.defaultProgram || capabilities.externalEditor) &&
+          isSafeExtension &&
+          fileExistsOnDisk,
       },
       { type: 'separator' },
       {

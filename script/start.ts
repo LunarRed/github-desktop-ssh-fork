@@ -19,7 +19,7 @@ function getPortOrDefault() {
     return result
   }
 
-  return 3000
+  return 4242
 }
 
 function startApp() {

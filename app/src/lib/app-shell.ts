@@ -1,5 +1,4 @@
 import { shell as electronShell } from 'electron'
-import * as Path from 'path'
 
 import { Repository } from '../models/repository'
 import {
@@ -8,6 +7,7 @@ import {
   openExternal,
   moveItemToTrash,
 } from '../ui/main-process-proxy'
+import { fileSystemFor } from './repository-file-system'
 
 export interface IAppShell {
   readonly moveItemToTrash: (path: string) => Promise<void>
@@ -59,6 +59,12 @@ export const shell: IAppShell = {
  * @param path The path of the file relative to the root of the repository
  */
 export function revealInFileManager(repository: Repository, path: string) {
-  const fullyQualifiedFilePath = Path.join(repository.path, path)
-  return shell.showItemInFolder(fullyQualifiedFilePath)
+  const fs = fileSystemFor(repository.path)
+
+  // A file on a remote host cannot be revealed in the local file manager.
+  if (!fs.capabilities.fileManager) {
+    return
+  }
+
+  return shell.showItemInFolder(fs.path(path))
 }

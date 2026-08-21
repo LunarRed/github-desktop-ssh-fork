@@ -1,6 +1,9 @@
 import { spawn, IGitSpawnOptions } from 'dugite'
 import * as GitPerf from '../../ui/lib/git-perf'
 import { withTrampolineEnv } from '../trampoline/trampoline-environment'
+import { isSshRepositoryPath } from '../ssh/ssh-path'
+import { spawnGitOverSsh } from '../ssh/ssh-git'
+import { getSSHEnvironment } from '../ssh/ssh'
 
 type SpawnOptions = IGitSpawnOptions & {
   /**
@@ -23,8 +26,18 @@ export const spawnGit = (
   path: string,
   name: string,
   options?: SpawnOptions
-) =>
-  withTrampolineEnv(
+) => {
+  if (isSshRepositoryPath(path)) {
+    return GitPerf.measure(`${name}: git ${args.join(' ')}`, async () => {
+      const sshEnv = await getSSHEnvironment()
+      return spawnGitOverSsh(args, path, {
+        ...options,
+        env: { ...options?.env, ...sshEnv },
+      })
+    })
+  }
+
+  return withTrampolineEnv(
     trampolineEnv =>
       GitPerf.measure(`${name}: git ${args.join(' ')}`, async () =>
         spawn(args, path, {
@@ -36,3 +49,4 @@ export const spawnGit = (
     options?.isBackgroundTask ?? false,
     options?.env
   )
+}

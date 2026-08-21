@@ -1,14 +1,28 @@
 import memoizeOne from 'memoize-one'
-import { pathExists } from '../path-exists'
+import { access } from 'fs/promises'
+import { resolve } from 'path'
 import { getBoolean } from '../local-storage'
-import {
-  getDesktopAskpassTrampolinePath,
-  getSSHWrapperPath,
-} from '../trampoline/trampoline-environment'
+import { getDesktopAskpassTrampolineFilename } from 'desktop-trampoline'
 
 const WindowsOpenSSHPath = 'C:/Windows/System32/OpenSSH/ssh.exe'
 
+/** Returns the path of the desktop-askpass-trampoline binary. */
+export function getDesktopAskpassTrampolinePath(): string {
+  return resolve(__dirname, 'desktop-trampoline', getDesktopAskpassTrampolineFilename())
+}
+
+/** Returns the path of the ssh-wrapper binary. */
+export function getSSHWrapperPath(): string {
+  return resolve(__dirname, 'desktop-trampoline', 'ssh-wrapper')
+}
+
 export const UseWindowsOpenSSHKey: string = 'useWindowsOpenSSH'
+
+const localPathExists = (path: string) =>
+  access(path).then(
+    () => true,
+    () => false
+  )
 
 export const isWindowsOpenSSHAvailable = memoizeOne(
   async (): Promise<boolean> => {
@@ -22,9 +36,23 @@ export const isWindowsOpenSSHAvailable = memoizeOne(
       return false
     }
 
-    return await pathExists(WindowsOpenSSHPath)
+    return await localPathExists(WindowsOpenSSHPath)
   }
 )
+
+/**
+ * Path to the ssh executable used to open a working copy on another host.
+ *
+ * Prefers Windows OpenSSH when it is present so we do not depend on Git's
+ * bundled ssh being on PATH. Falls back to `ssh`.
+ */
+export const getSshBinaryPath = memoizeOne(async (): Promise<string> => {
+  if (__WIN32__ && (await localPathExists(WindowsOpenSSHPath))) {
+    return WindowsOpenSSHPath
+  }
+
+  return 'ssh'
+})
 
 // HACK: The purpose of this function is to wrap `getBoolean` inside a try/catch
 // block, because for some reason, accessing localStorage from tests sometimes

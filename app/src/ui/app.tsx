@@ -1,5 +1,4 @@
 import * as React from 'react'
-import * as Path from 'path'
 
 import { TransitionGroup, CSSTransition } from 'react-transition-group'
 import {
@@ -33,6 +32,10 @@ import {
   getNonForkGitHubRepository,
   isRepositoryWithGitHubRepository,
 } from '../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../lib/repository-file-system'
 import { Branch } from '../models/branch'
 import { PreferencesTab } from '../models/preferences'
 import { findItemByAccessKey, itemIsSelectable } from '../models/app-menu'
@@ -3432,12 +3435,16 @@ export class App extends React.Component<IAppProps, IAppState> {
       return
     }
 
-    const fullPath = Path.join(repository.path, path)
+    const fullPath = repositoryFilePath(repository.path, path)
     this.props.dispatcher.openInExternalEditor(fullPath)
   }
 
   private showRepository = (repository: Repository | CloningRepository) => {
     if (!(repository instanceof Repository)) {
+      return
+    }
+
+    if (!fileSystemFor(repository.path).capabilities.fileManager) {
       return
     }
 

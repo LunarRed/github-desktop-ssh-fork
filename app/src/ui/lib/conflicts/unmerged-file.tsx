@@ -7,8 +7,11 @@ import {
   ManualConflict,
   GitStatusEntry,
 } from '../../../models/status'
-import { join } from 'path'
 import { Repository } from '../../../models/repository'
+import {
+  fileSystemFor,
+  repositoryFilePath,
+} from '../../../lib/repository-file-system'
 import { Dispatcher } from '../../dispatcher'
 import { showContextualMenu } from '../../../lib/menu-item'
 import { Octicon } from '../../octicons'
@@ -91,7 +94,9 @@ export const renderUnmergedFile: React.FunctionComponent<{
       status: props.status,
       resolvedExternalEditor: props.resolvedExternalEditor,
       onOpenEditorClick: () =>
-        props.openFileInExternalEditor(join(props.repository.path, props.path)),
+        props.openFileInExternalEditor(
+          repositoryFilePath(props.repository.path, props.path)
+        ),
       repository: props.repository,
       dispatcher: props.dispatcher,
       ourBranch: props.ourBranch,
@@ -406,15 +411,21 @@ const makeMarkerConflictDropdownClickHandler = (
   ) => void
 ) => {
   return () => {
-    const absoluteFilePath = join(repository.path, relativeFilePath)
+    const absoluteFilePath = repositoryFilePath(
+      repository.path,
+      relativeFilePath
+    )
+    const { capabilities } = fileSystemFor(repository.path)
     const items: IMenuItem[] = [
       {
         label: OpenWithDefaultProgramLabel,
         action: () => openFile(absoluteFilePath, dispatcher),
+        enabled: capabilities.defaultProgram || capabilities.externalEditor,
       },
       {
         label: RevealInFileManagerLabel,
         action: () => revealInFileManager(repository, relativeFilePath),
+        enabled: capabilities.fileManager,
       },
       {
         type: 'separator',

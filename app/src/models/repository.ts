@@ -8,6 +8,7 @@ import {
 } from './workflow-preferences'
 import { assertNever, fatalError } from '../lib/fatal-error'
 import { createEqualityHash } from './equality-hash'
+import { fileSystemFor } from '../lib/repository-file-system'
 
 function getBaseName(path: string): string {
   const baseName = Path.basename(path)
@@ -87,7 +88,7 @@ export class Repository {
    * joining the repository path with '.git'.
    */
   public get resolvedGitDir(): string {
-    return this.gitDir ?? Path.join(this.path, '.git')
+    return this.gitDir ?? fileSystemFor(this.path).path('.git')
   }
 }
 

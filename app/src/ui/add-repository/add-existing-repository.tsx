@@ -13,6 +13,7 @@ import { FoldoutType } from '../../lib/app-state'
 
 import untildify from 'untildify'
 import { showOpenDialog } from '../main-process-proxy'
+import { canonicalizeSshRepositoryPath } from '../../lib/ssh/ssh-path'
 import { Ref } from '../lib/ref'
 import { InputError } from '../lib/input-description/input-error'
 import { IAccessibleMessage } from '../../models/accessible-message'
@@ -271,6 +272,13 @@ export class AddExistingRepository extends React.Component<
   }
 
   private resolvedPath(path: string): string {
+    // SSH working-copy URLs are canonicalized and left as URLs —
+    // Path.resolve would destroy them on Windows.
+    const sshPath = canonicalizeSshRepositoryPath(path)
+    if (sshPath !== null) {
+      return sshPath
+    }
+
     return Path.resolve('/', untildify(path))
   }
 

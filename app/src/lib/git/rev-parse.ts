@@ -1,6 +1,5 @@
 import { git } from './core'
-import { directoryExists } from '../directory-exists'
-import { resolve } from 'path'
+import { fileSystemFor } from '../repository-file-system'
 
 export type RepositoryType =
   | { kind: 'bare' }
@@ -16,7 +15,9 @@ export type RepositoryType =
  * found.
  */
 export async function getRepositoryType(path: string): Promise<RepositoryType> {
-  if (!(await directoryExists(path))) {
+  const fs = fileSystemFor(path)
+
+  if (!(await fs.directoryExists('.'))) {
     return { kind: 'missing' }
   }
 
@@ -48,8 +49,8 @@ export async function getRepositoryType(path: string): Promise<RepositoryType> {
           ? { kind: 'bare' }
           : {
               kind: 'regular',
-              topLevelWorkingDirectory: resolve(path, cdup),
-              gitDir: resolve(path, gitDir),
+              topLevelWorkingDirectory: fs.resolve(cdup),
+              gitDir: fs.resolve(gitDir),
             }
       }
     }

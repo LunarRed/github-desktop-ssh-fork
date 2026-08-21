@@ -1,4 +1,3 @@
-import * as Path from 'path'
 import {
   getNonForkGitHubRepository,
   isRepositoryWithForkedGitHubRepository,
@@ -96,7 +95,7 @@ import { IStatsStore } from '../stats'
 import { getTagsToPush, storeTagsToPush } from './helpers/tags-to-push-storage'
 import { DiffSelection, ITextDiff } from '../../models/diff'
 import { getDefaultBranch } from '../helpers/default-branch'
-import { rm, stat } from 'fs/promises'
+import { fileSystemFor } from '../repository-file-system'
 import { findForkedRemotesToPrune } from './helpers/find-forked-remotes-to-prune'
 import { findDefaultBranch } from '../find-default-branch'
 
@@ -1464,13 +1463,10 @@ export class GitStore extends BaseStore {
 
   /** Update the last fetched date. */
   public async updateLastFetched() {
-    const fetchHeadPath = Path.join(
-      this.repository.resolvedGitDir,
-      'FETCH_HEAD'
-    )
-
     try {
-      const fstat = await stat(fetchHeadPath)
+      const fstat = await fileSystemFor(this.repository.resolvedGitDir).stat(
+        'FETCH_HEAD'
+      )
 
       // If the file's empty then it _probably_ means the fetch failed and we
       // shouldn't update the last fetched date.
@@ -1551,6 +1547,7 @@ export class GitStore extends BaseStore {
     const pathsToReset = new Array<string>()
 
     const submodules = await listSubmodules(this.repository)
+    const fs = fileSystemFor(this.repository.path)
 
     for (const file of files) {
       const foundSubmodule = submodules.some(s => s.path === file.path)
@@ -1558,9 +1555,12 @@ export class GitStore extends BaseStore {
       if (file.status.kind !== AppFileStatusKind.Deleted && !foundSubmodule) {
         if (moveToTrash) {
           try {
-            await this.shell.moveItemToTrash(
-              Path.resolve(this.repository.path, file.path)
-            )
+            if (!fs.capabilities.trash) {
+              // Remote hosts have no local Recycle Bin we can use.
+              await fs.rm(file.path, { force: true })
+            } else {
+              await this.shell.moveItemToTrash(fs.resolve(file.path))
+            }
           } catch (e) {
             if (askForConfirmationOnDiscardChangesPermanently) {
               throw new DiscardChangesError(e, this.repository, files)
@@ -1570,7 +1570,7 @@ export class GitStore extends BaseStore {
             // chosen to always discard the changes permanently if trash failes.
             // We need to remove the file manually.
             if (file.status.kind === AppFileStatusKind.Untracked) {
-              await rm(Path.join(this.repository.path, file.path))
+              await fs.rm(file.path)
             }
           }
         } else if (moveToTrash === false) {
@@ -1578,7 +1578,7 @@ export class GitStore extends BaseStore {
           // discard the changes permanently. We need to remove the file
           // manually.
           if (file.status.kind === AppFileStatusKind.Untracked) {
-            await rm(Path.join(this.repository.path, file.path))
+            await fs.rm(file.path)
           }
         }
       }
