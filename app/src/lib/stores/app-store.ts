@@ -55,6 +55,10 @@ import {
   setPreferAbsoluteDates,
 } from '../../models/formatting-preferences'
 import {
+  getGroupRepositoriesByMachine,
+  setGroupRepositoriesByMachine,
+} from '../../models/repository-list-preferences'
+import {
   Commit,
   ICommitContext,
   CommitOneLine,
@@ -685,7 +689,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   /** The function to resolve the current Open in Desktop flow. */
   private resolveOpenInDesktop:
-    ((repository: Repository | null) => void) | null = null
+    | ((repository: Repository | null) => void)
+    | null = null
 
   private selectedCloneRepositoryTab = CloneRepositoryTab.DotCom
 
@@ -721,11 +726,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
   private popupManager = new PopupManager()
 
   private pullRequestSuggestedNextAction:
-    PullRequestSuggestedNextAction | undefined = undefined
+    | PullRequestSuggestedNextAction
+    | undefined = undefined
 
   private showDiffCheckMarks: boolean = showDiffCheckMarksDefault
 
   private preferAbsoluteDates: boolean = false
+
+  private groupRepositoriesByMachine: boolean = false
 
   private cachedRepoRulesets = new Map<number, IAPIRepoRuleset>()
 
@@ -1342,6 +1350,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       underlineLinks: this.underlineLinks,
       showDiffCheckMarks: this.showDiffCheckMarks,
       preferAbsoluteDates: this.preferAbsoluteDates,
+      groupRepositoriesByMachine: this.groupRepositoriesByMachine,
       updateState: updateStore.state,
       commitMessageGenerationDisclaimerLastSeen:
         this.commitMessageGenerationDisclaimerLastSeen,
@@ -2615,6 +2624,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
     this.preferAbsoluteDates = getPreferAbsoluteDates()
 
+    this.groupRepositoriesByMachine = getGroupRepositoriesByMachine()
+
     this.commitMessageGenerationDisclaimerLastSeen =
       getNumber(commitMessageGenerationDisclaimerLastSeenKey) ?? null
 
@@ -3861,7 +3872,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
   public _changeFileIncluded(
     repository: Repository,
     file:
-      WorkingDirectoryFileChange | ReadonlyArray<WorkingDirectoryFileChange>,
+      | WorkingDirectoryFileChange
+      | ReadonlyArray<WorkingDirectoryFileChange>,
     include: boolean
   ): Promise<void> {
     const files = Array.isArray(file) ? file : [file]
@@ -5611,8 +5623,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
 
   private async fastForwardBranches(repository: Repository) {
     try {
-      const eligibleBranches =
-        await getBranchesDifferingFromUpstream(repository)
+      const eligibleBranches = await getBranchesDifferingFromUpstream(
+        repository
+      )
 
       await fastForwardBranches(repository, eligibleBranches)
     } catch (e) {
@@ -6770,8 +6783,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     }
 
     try {
-      const allPRs =
-        await this.pullRequestCoordinator.getAllPullRequests(repository)
+      const allPRs = await this.pullRequestCoordinator.getAllPullRequests(
+        repository
+      )
       for (const pr of findPullRequestsByNumbers(lookups, allPRs)) {
         byNumber.set(pr.pullRequestNumber, {
           number: pr.pullRequestNumber,
@@ -7216,8 +7230,8 @@ export class AppStore extends TypedBaseStore<IAppState> {
               ? ManualConflictResolution.theirs
               : ManualConflictResolution.ours
             : deletedSide === 'ours'
-              ? ManualConflictResolution.ours
-              : ManualConflictResolution.theirs
+            ? ManualConflictResolution.ours
+            : ManualConflictResolution.theirs
         this._updateManualConflictResolution(
           repository,
           resolution.path,
@@ -8302,8 +8316,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
     // association is out of date. So try again before we bail on providing an
     // authenticating user.
     if (!account) {
-      updatedRepository =
-        await this.repositoryWithRefreshedGitHubRepository(repository)
+      updatedRepository = await this.repositoryWithRefreshedGitHubRepository(
+        repository
+      )
     }
 
     return fn(updatedRepository)
@@ -10614,6 +10629,14 @@ export class AppStore extends TypedBaseStore<IAppState> {
     if (value !== this.preferAbsoluteDates) {
       this.preferAbsoluteDates = value
       setPreferAbsoluteDates(value)
+      this.emitUpdate()
+    }
+  }
+
+  public _setGroupRepositoriesByMachine(value: boolean) {
+    if (value !== this.groupRepositoriesByMachine) {
+      this.groupRepositoriesByMachine = value
+      setGroupRepositoriesByMachine(value)
       this.emitUpdate()
     }
   }

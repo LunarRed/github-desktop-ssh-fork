@@ -36,6 +36,8 @@ interface IAppearanceProps {
   readonly onSelectedNumberFormatChanged: (format: INumberFormat) => void
   readonly preferAbsoluteDates: boolean
   readonly onPreferAbsoluteDatesChanged: (value: boolean) => void
+  readonly groupRepositoriesByMachine: boolean
+  readonly onGroupRepositoriesByMachineChanged: (value: boolean) => void
 }
 
 interface IAppearanceState {
@@ -129,6 +131,12 @@ export class Appearance extends React.Component<
     event: React.FormEvent<HTMLInputElement>
   ) => {
     this.props.onPreferAbsoluteDatesChanged(event.currentTarget.checked)
+  }
+
+  private onGroupRepositoriesByMachineChanged = (
+    event: React.FormEvent<HTMLInputElement>
+  ) => {
+    this.props.onGroupRepositoriesByMachineChanged(event.currentTarget.checked)
   }
 
   public renderThemeSwatch = (theme: ApplicationTheme) => {
@@ -261,6 +269,29 @@ export class Appearance extends React.Component<
     )
   }
 
+  private renderRepository() {
+    return (
+      <div className="appearance-section repository-section">
+        <h2 id="repository-heading">Repository</h2>
+
+        <Checkbox
+          className="group-repositories-by-machine"
+          label={
+            __DARWIN__
+              ? 'Pre-Order by Physical Machine'
+              : 'Pre-order by physical machine'
+          }
+          value={
+            this.props.groupRepositoriesByMachine
+              ? CheckboxValue.On
+              : CheckboxValue.Off
+          }
+          onChange={this.onGroupRepositoriesByMachineChanged}
+        />
+      </div>
+    )
+  }
+
   private renderSelectedTabSize() {
     const availableTabSizes: number[] = [1, 2, 3, 4, 5, 6, 8, 10, 12]
 
@@ -288,6 +319,7 @@ export class Appearance extends React.Component<
       <DialogContent>
         {this.renderSelectedTheme()}
         {this.renderFormatting()}
+        {this.renderRepository()}
         {this.renderSelectedTabSize()}
       </DialogContent>
     )

@@ -74,6 +74,9 @@ interface IRepositoriesListProps {
   /** The text entered by the user to filter their repository list */
   readonly filterText: string
 
+  /** Whether to group the repositories by the machine they live on */
+  readonly groupByMachine: boolean
+
   readonly dispatcher: Dispatcher
 }
 
@@ -122,14 +125,16 @@ export class RepositoriesList extends React.Component<
     (
       repositories: ReadonlyArray<Repositoryish> | null,
       localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-      recentRepositories: ReadonlyArray<number>
+      recentRepositories: ReadonlyArray<number>,
+      groupByMachine: boolean
     ) =>
       repositories === null
         ? []
         : groupRepositories(
             repositories,
             localRepositoryStateLookup,
-            recentRepositories
+            recentRepositories,
+            groupByMachine
           )
   )
 
@@ -248,6 +253,8 @@ export class RepositoriesList extends React.Component<
       return 'Other'
     } else if (kind === 'dotcom') {
       return group.owner.login
+    } else if (kind === 'machine') {
+      return group.host ?? 'This machine'
     } else if (kind === 'recent') {
       return 'Recent'
     } else {
@@ -325,7 +332,8 @@ export class RepositoriesList extends React.Component<
     const groups = this.getRepositoryGroups(
       this.props.repositories,
       this.props.localRepositoryStateLookup,
-      this.props.recentRepositories
+      this.props.recentRepositories,
+      this.props.groupByMachine
     )
 
     // So there's two types of selection at play here. There's the repository

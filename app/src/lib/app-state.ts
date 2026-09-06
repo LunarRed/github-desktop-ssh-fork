@@ -395,6 +395,9 @@ export interface IAppState {
   /** Whether the user prefers absolute dates over relative time in lists */
   readonly preferAbsoluteDates: boolean
 
+  /** Whether the repository list should be grouped by physical machine */
+  readonly groupRepositoriesByMachine: boolean
+
   /**
    * Cached repo rulesets. Used to prevent repeatedly querying the same
    * rulesets to check their bypass status.

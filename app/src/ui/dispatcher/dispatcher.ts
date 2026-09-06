@@ -4198,6 +4198,10 @@ export class Dispatcher {
     return this.appStore._setPreferAbsoluteDates(value)
   }
 
+  public setGroupRepositoriesByMachine(value: boolean) {
+    return this.appStore._setGroupRepositoriesByMachine(value)
+  }
+
   public testPruneBranches() {
     return this.appStore._testPruneBranches()
   }

@@ -80,6 +80,7 @@ import {
   setTimeFormatPreference,
   setNumberFormatPreference,
 } from '../../models/formatting-preferences'
+import { getGroupRepositoriesByMachine } from '../../models/repository-list-preferences'
 import { enableFormattingPreferences } from '../../lib/feature-flag'
 
 interface IPreferencesProps {
@@ -189,6 +190,7 @@ interface IPreferencesState {
   readonly selectedTimeFormat?: TimeFormat
   readonly selectedNumberFormat?: INumberFormat
   readonly preferAbsoluteDates?: boolean
+  readonly groupRepositoriesByMachine?: boolean
 }
 
 /**
@@ -259,6 +261,7 @@ export class Preferences extends React.Component<
       selectedTimeFormat: getTimeFormatPreference(),
       selectedNumberFormat: getNumberFormatPreference(),
       preferAbsoluteDates: getPreferAbsoluteDates(),
+      groupRepositoriesByMachine: getGroupRepositoriesByMachine(),
     }
   }
 
@@ -656,6 +659,13 @@ export class Preferences extends React.Component<
               this.state.preferAbsoluteDates ?? getPreferAbsoluteDates()
             }
             onPreferAbsoluteDatesChanged={this.onPreferAbsoluteDatesChanged}
+            groupRepositoriesByMachine={
+              this.state.groupRepositoriesByMachine ??
+              getGroupRepositoriesByMachine()
+            }
+            onGroupRepositoriesByMachineChanged={
+              this.onGroupRepositoriesByMachineChanged
+            }
           />
         )
         break
@@ -885,6 +895,12 @@ export class Preferences extends React.Component<
 
   private onPreferAbsoluteDatesChanged = (preferAbsoluteDates: boolean) => {
     this.setState({ preferAbsoluteDates })
+  }
+
+  private onGroupRepositoriesByMachineChanged = (
+    groupRepositoriesByMachine: boolean
+  ) => {
+    this.setState({ groupRepositoriesByMachine })
   }
 
   private onUseCustomEditorChanged = (useCustomEditor: boolean) => {
@@ -1158,6 +1174,12 @@ export class Preferences extends React.Component<
       if (this.state.preferAbsoluteDates !== undefined) {
         dispatcher.setPreferAbsoluteDates(this.state.preferAbsoluteDates)
       }
+    }
+
+    if (this.state.groupRepositoriesByMachine !== undefined) {
+      dispatcher.setGroupRepositoriesByMachine(
+        this.state.groupRepositoriesByMachine
+      )
     }
 
     this.props.onDismissed()

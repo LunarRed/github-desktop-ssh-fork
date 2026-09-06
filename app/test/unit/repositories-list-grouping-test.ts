@@ -153,4 +153,84 @@ describe('repository list grouping', () => {
     assert.equal(grouped[2].items[1].text[0], 'enterprise-repo')
     assert(grouped[2].items[1].needsDisambiguation)
   })
+
+  describe('when grouping by machine', () => {
+    it('groups remote repositories by their SSH host and local ones under This machine', () => {
+      const localRepo = new Repository('C:\\repos\\local', 1, null, false)
+      const macbookRepo = new Repository(
+        'ssh://macbook/~/repos/api',
+        2,
+        gitHubRepoFixture({ owner: 'me', name: 'api' }),
+        false
+      )
+      const nucRepo = new Repository('ssh://nuc/srv/website', 3, null, false)
+
+      const grouped = groupRepositories(
+        [macbookRepo, localRepo, nucRepo],
+        cache,
+        [],
+        true
+      )
+
+      assert.equal(grouped.length, 3)
+
+      // The machine running the app sorts before the remote hosts
+      assert.equal(grouped[0].identifier.kind, 'machine')
+      assert.equal((grouped[0].identifier as any).host, null)
+      assert.equal(grouped[0].items.length, 1)
+      assert.equal(grouped[0].items[0].repository.path, 'C:\\repos\\local')
+
+      assert.equal(grouped[1].identifier.kind, 'machine')
+      assert.equal((grouped[1].identifier as any).host, 'macbook')
+      assert.equal(grouped[1].items.length, 1)
+      assert.equal(
+        grouped[1].items[0].repository.path,
+        'ssh://macbook/~/repos/api'
+      )
+
+      assert.equal(grouped[2].identifier.kind, 'machine')
+      assert.equal((grouped[2].identifier as any).host, 'nuc')
+      assert.equal(grouped[2].items.length, 1)
+      assert.equal(grouped[2].items[0].repository.path, 'ssh://nuc/srv/website')
+    })
+
+    it('always disambiguates GitHub repositories with the owner prefix', () => {
+      const repoA = new Repository(
+        'ssh://macbook/repos/repo',
+        1,
+        gitHubRepoFixture({ owner: 'user1', name: 'repo' }),
+        false
+      )
+      const repoB = new Repository(
+        'C:\\repos\\other',
+        2,
+        gitHubRepoFixture({ owner: 'user2', name: 'other' }),
+        false
+      )
+      const localRepo = new Repository('C:\\repos\\plain', 3, null, false)
+
+      const grouped = groupRepositories(
+        [repoA, repoB, localRepo],
+        cache,
+        [],
+        true
+      )
+
+      // All three live on (different) machines but only two groups:
+      // "This machine" holds repoB and localRepo
+      assert.equal(grouped.length, 2)
+
+      const thisMachine = grouped.find(g => (g.identifier as any).host === null)
+      assert.equal(thisMachine?.items.length, 2)
+
+      const items = thisMachine!.items
+      assert(items.every(item => item.repository.id !== repoA.id))
+
+      const otherItem = items.find(i => i.repository.id === repoB.id)
+      assert(otherItem?.needsDisambiguation)
+
+      const plainItem = items.find(i => i.repository.id === localRepo.id)
+      assert(!plainItem?.needsDisambiguation)
+    })
+  })
 })

@@ -12,6 +12,11 @@ import { createObservableRef } from '../lib/observable-ref'
 import { Tooltip } from '../lib/tooltip'
 import { enableAccessibleListToolTips } from '../../lib/feature-flag'
 import { TooltippedContent } from '../lib/tooltipped-content'
+import { SshRepositoryIcon } from './ssh-repository-icon'
+import {
+  isSshRepositoryPath,
+  parseSshRepositoryPath,
+} from '../../lib/ssh/ssh-path'
 
 interface IRepositoryListItemProps {
   readonly repository: Repositoryish
@@ -50,6 +55,11 @@ export class RepositoryListItem extends React.Component<
       prefix = `${gitHubRepo.owner.login}/`
     }
 
+    const sshLocation =
+      repository instanceof Repository && isSshRepositoryPath(repository.path)
+        ? parseSshRepositoryPath(repository.path)
+        : null
+
     const classNameList = classNames('name', {
       alias: alias !== null,
     })
@@ -63,10 +73,14 @@ export class RepositoryListItem extends React.Component<
           {this.renderTooltip()}
         </Tooltip>
 
-        <Octicon
-          className="icon-for-repository"
-          symbol={iconForRepository(repository)}
-        />
+        {sshLocation !== null ? (
+          <SshRepositoryIcon host={sshLocation.host} />
+        ) : (
+          <Octicon
+            className="icon-for-repository"
+            symbol={iconForRepository(repository)}
+          />
+        )}
 
         <div className={classNames(classNameList)}>
           {prefix ? <span className="prefix">{prefix}</span> : null}

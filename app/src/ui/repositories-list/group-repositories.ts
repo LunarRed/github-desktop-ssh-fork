@@ -13,6 +13,7 @@ import { IAheadBehind } from '../../models/branch'
 import { assertNever } from '../../lib/fatal-error'
 import { isDotCom } from '../../lib/endpoint-capabilities'
 import { Owner } from '../../models/owner'
+import { parseSshRepositoryPath } from '../../lib/ssh/ssh-path'
 
 export type RepositoryListGroup =
   | {
@@ -26,6 +27,14 @@ export type RepositoryListGroup =
       kind: 'enterprise'
       host: string
     }
+  | {
+      /**
+       * A physical machine hosting one or more working copies. A `host` of
+       * null means the machine the app is running on.
+       */
+      kind: 'machine'
+      host: string | null
+    }
 
 /**
  * Returns a unique grouping key (string) for a repository group. Doubles as a
@@ -37,12 +46,15 @@ export const getGroupKey = (group: RepositoryListGroup) => {
   switch (kind) {
     case 'recent':
       return `0:recent`
+    case 'machine':
+      // The local machine sorts before the remote hosts
+      return `1:machine:${group.host ?? ''}`
     case 'dotcom':
-      return `1:dotcom:${group.owner.login}`
+      return `2:dotcom:${group.owner.login}`
     case 'enterprise':
-      return `2:enterprise:${group.host}`
+      return `3:enterprise:${group.host}`
     case 'other':
-      return `3:other`
+      return `4:other`
     default:
       assertNever(group, `Unknown repository group kind ${kind}`)
   }
@@ -72,12 +84,30 @@ const getGroupForRepository = (repo: Repositoryish): RepositoryListGroup => {
   return { kind: 'other' }
 }
 
+/**
+ * Returns the machine group for a repository, i.e. the SSH host it lives on
+ * or null-host when the working copy is on the machine running the app.
+ */
+const getMachineGroupForRepository = (
+  repo: Repositoryish
+): RepositoryListGroup => {
+  if (repo instanceof Repository) {
+    const ssh = parseSshRepositoryPath(repo.path)
+    if (ssh !== null && repo.path.startsWith('ssh://')) {
+      return { kind: 'machine', host: ssh.host }
+    }
+  }
+
+  return { kind: 'machine', host: null }
+}
+
 type RepoGroupItem = { group: RepositoryListGroup; repos: Repositoryish[] }
 
 export function groupRepositories(
   repositories: ReadonlyArray<Repositoryish>,
   localRepositoryStateLookup: ReadonlyMap<number, ILocalRepositoryState>,
-  recentRepositories: ReadonlyArray<number>
+  recentRepositories: ReadonlyArray<number>,
+  groupByMachine = false
 ): ReadonlyArray<IFilterListGroup<IRepositoryListItem, RepositoryListGroup>> {
   const includeRecentGroup = repositories.length > recentRepositoriesThreshold
   const recentSet = includeRecentGroup ? new Set(recentRepositories) : undefined
@@ -99,7 +129,11 @@ export function groupRepositories(
       addToGroup({ kind: 'recent' }, repo)
     }
 
-    addToGroup(getGroupForRepository(repo), repo)
+    if (groupByMachine && repo instanceof Repository) {
+      addToGroup(getMachineGroupForRepository(repo), repo)
+    } else {
+      addToGroup(getGroupForRepository(repo), repo)
+    }
   }
 
   return Array.from(groups)
@@ -154,6 +188,11 @@ const toSortedListItems = (
         id: r.id.toString(),
         repository: r,
         needsDisambiguation:
+          // Within a machine group we always show the owner as an
+          // intermediate level between the machine and the repository.
+          (group.kind === 'machine' &&
+            r instanceof Repository &&
+            isRepositoryWithGitHubRepository(r)) ||
           // If the repository is in the enterprise group and has a duplicate
           // name in the group, we need to disambiguate it. We don't have to
           // disambiguate repositories in the 'dotcom' group because they are

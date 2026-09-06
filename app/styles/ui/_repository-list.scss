@@ -62,6 +62,14 @@
       }
     }
 
+    .ssh-repository-icon {
+      display: flex;
+    }
+
+    .ssh-repository-globe {
+      color: var(--link-button-color);
+    }
+
     .alias {
       font-style: italic;
     }
@@ -144,6 +152,10 @@
     .list-item.selected {
       .repository-list-item,
       .repository-list-item-tooltip {
+        .ssh-repository-globe {
+          color: var(--box-selected-active-text-color);
+        }
+
         .ahead-behind {
           background: var(--list-item-selected-active-badge-background-color);
           color: var(--list-item-selected-active-badge-color);

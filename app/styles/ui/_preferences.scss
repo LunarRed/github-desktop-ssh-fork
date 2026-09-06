@@ -67,6 +67,15 @@
     }
   }
 
+  .repository-section {
+    margin-top: var(--spacing);
+    margin-bottom: var(--spacing);
+
+    .checkbox-component:not(:last-child) {
+      margin-bottom: var(--spacing-half);
+    }
+  }
+
   .accounts-tab {
     .account-info {
       .user-info-container {
