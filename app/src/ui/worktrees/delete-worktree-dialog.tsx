@@ -1,10 +1,10 @@
 import * as React from 'react'
-import * as Path from 'path'
 
 import { Dialog, DialogContent, DialogFooter } from '../dialog'
 import { Ref } from '../lib/ref'
 import { OkCancelButtonGroup } from '../dialog/ok-cancel-button-group'
 import { Repository } from '../../models/repository'
+import { getWorktreeDisplayName } from '../../models/worktree'
 import { Checkbox, CheckboxValue } from '../lib/checkbox'
 
 interface IDeleteWorktreeDialogProps {
@@ -38,7 +38,7 @@ export class DeleteWorktreeDialog extends React.Component<
   }
 
   public render() {
-    const name = Path.basename(this.props.worktreePath)
+    const name = getWorktreeDisplayName({ path: this.props.worktreePath })
 
     return (
       <Dialog

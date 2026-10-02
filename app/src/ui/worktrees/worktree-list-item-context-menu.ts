@@ -1,6 +1,5 @@
-import * as Path from 'path'
-
 import { IMenuItem } from '../../lib/menu-item'
+import { getWorktreeDisplayName } from '../../models/worktree'
 import { writeClipboardText } from '../main-process-proxy'
 
 interface IWorktreeContextMenuConfig {
@@ -16,7 +15,7 @@ export function generateWorktreeContextMenuItems(
 ): ReadonlyArray<IMenuItem> {
   const { path, isMainWorktree, isLocked, onRenameWorktree, onRemoveWorktree } =
     config
-  const name = Path.basename(path)
+  const name = getWorktreeDisplayName({ path })
   const items = new Array<IMenuItem>()
 
   if (onRenameWorktree !== undefined) {

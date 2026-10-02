@@ -2,10 +2,17 @@ import * as Path from 'path'
 import type { Repository } from '../../models/repository'
 import type { WorktreeEntry, WorktreeType } from '../../models/worktree'
 import { fileSystemFor } from '../repository-file-system'
+import { withResolvedSshLocation } from '../ssh/ssh-fs'
+import {
+  formatSshRepositoryPath,
+  parseSshRepositoryPath,
+  resolveRepositoryPath,
+} from '../ssh/ssh-path'
 import { git } from './core'
 
 export function parseWorktreePorcelainOutput(
-  stdout: string
+  stdout: string,
+  repositoryPath?: string
 ): ReadonlyArray<WorktreeEntry> {
   if (stdout.trim().length === 0) {
     return []
@@ -15,6 +22,8 @@ export function parseWorktreePorcelainOutput(
   // a block are separated by single NUL
   const blocks = stdout.replace(/\0$/, '').split('\0\0')
   const entries: WorktreeEntry[] = []
+  const location =
+    repositoryPath === undefined ? null : parseSshRepositoryPath(repositoryPath)
 
   for (let i = 0; i < blocks.length; i++) {
     const lines = blocks[i].split('\0')
@@ -32,7 +41,11 @@ export function parseWorktreePorcelainOutput(
         // through getRepositoryType which uses path.resolve to deduce the
         // absolute top level directory and that will normalize paths as well
         // so by normalizing here we can be more confident about comparing paths
-        path = Path.normalize(line.substring('worktree '.length))
+        const worktreePath = line.substring('worktree '.length)
+        path =
+          location === null
+            ? Path.normalize(worktreePath)
+            : formatSshRepositoryPath({ ...location, path: worktreePath })
       } else if (line.startsWith('HEAD ')) {
         head = line.substring('HEAD '.length)
       } else if (line.startsWith('branch ')) {
@@ -56,27 +69,63 @@ export function parseWorktreePorcelainOutput(
 export async function listWorktrees(
   repositoryOrPath: Repository | string
 ): Promise<ReadonlyArray<WorktreeEntry>> {
-  const result = await git(
-    ['worktree', 'list', '--porcelain', '-z'],
+  const repositoryPath =
     typeof repositoryOrPath === 'string'
       ? repositoryOrPath
-      : repositoryOrPath.path,
+      : repositoryOrPath.path
+  const result = await git(
+    ['worktree', 'list', '--porcelain', '-z'],
+    repositoryPath,
     'listWorktrees'
   )
 
-  return parseWorktreePorcelainOutput(result.stdout)
+  return parseWorktreePorcelainOutput(result.stdout, repositoryPath)
 }
 
 export async function listWorktreesFromGitDir(
   gitDir: string
 ): Promise<ReadonlyArray<WorktreeEntry>> {
   const result = await git(
-    ['--git-dir', gitDir, 'worktree', 'list', '--porcelain', '-z'],
+    [
+      '--git-dir',
+      await worktreePathArgument(gitDir, gitDir),
+      'worktree',
+      'list',
+      '--porcelain',
+      '-z',
+    ],
     gitDir,
     'listWorktreesFromGitDir'
   )
 
-  return parseWorktreePorcelainOutput(result.stdout)
+  return parseWorktreePorcelainOutput(result.stdout, gitDir)
+}
+
+/** Restore the SSH connection for server-local paths saved by older versions. */
+function qualifyRemotePath(repositoryPath: string, path: string): string {
+  const location = parseSshRepositoryPath(repositoryPath)
+  if (location === null || parseSshRepositoryPath(path) !== null) {
+    return path
+  }
+
+  return path.startsWith('/') || path.startsWith('~')
+    ? formatSshRepositoryPath({ ...location, path })
+    : resolveRepositoryPath(repositoryPath, path)
+}
+
+/** Remote Git arguments name server paths, while its cwd retains the SSH URL. */
+async function worktreePathArgument(
+  repositoryPath: string,
+  path: string
+): Promise<string> {
+  if (parseSshRepositoryPath(repositoryPath) === null) {
+    return path
+  }
+
+  const location = parseSshRepositoryPath(path)
+  return location === null
+    ? path
+    : (await withResolvedSshLocation(location)).path
 }
 
 /**
@@ -91,7 +140,11 @@ export async function listWorktreesFromGitDir(
 export async function resolveMainWorktreePath(
   repository: Repository
 ): Promise<string | null> {
-  const { mainWorktreePath, gitDir, path } = repository
+  const { gitDir, path } = repository
+  const mainWorktreePath =
+    repository.mainWorktreePath === undefined
+      ? undefined
+      : qualifyRemotePath(path, repository.mainWorktreePath)
 
   if (mainWorktreePath === path) {
     return null
@@ -111,9 +164,9 @@ export async function resolveMainWorktreePath(
     return null
   }
 
-  const mainWorktree = (await listWorktreesFromGitDir(gitDir)).find(
-    wt => wt.type === 'main'
-  )
+  const mainWorktree = (
+    await listWorktreesFromGitDir(qualifyRemotePath(path, gitDir))
+  ).find(wt => wt.type === 'main')
 
   return mainWorktree === undefined || mainWorktree.path === path
     ? null
@@ -136,7 +189,7 @@ export async function addWorktree(
     args.push('-b', options.createBranch)
   }
 
-  args.push(path)
+  args.push(await worktreePathArgument(repository.path, path))
 
   if (options.commitish) {
     args.push(options.commitish)
@@ -154,7 +207,7 @@ export async function removeWorktree(
   if (force) {
     args.push('--force')
   }
-  args.push(worktreePath)
+  args.push(await worktreePathArgument(repositoryPath, worktreePath))
 
   await git(args, repositoryPath, 'removeWorktree')
 }
@@ -165,7 +218,12 @@ export async function moveWorktree(
   newPath: string
 ): Promise<void> {
   await git(
-    ['worktree', 'move', oldPath, newPath],
+    [
+      'worktree',
+      'move',
+      await worktreePathArgument(repository.path, oldPath),
+      await worktreePathArgument(repository.path, newPath),
+    ],
     repository.path,
     'moveWorktree'
   )

@@ -13,6 +13,11 @@ import memoizeOne from 'memoize-one'
 import { RepositoryPath } from '../lib/repository-path'
 import { Ref } from '../lib/ref'
 import { sanitizedRefName } from '../../lib/sanitize-ref-name'
+import {
+  formatSshRepositoryPath,
+  parseSshRepositoryPath,
+  resolveRepositoryPath,
+} from '../../lib/ssh/ssh-path'
 
 interface IAddWorktreeDialogProps {
   readonly repository: Repository
@@ -82,6 +87,17 @@ export class AddWorktreeDialog extends React.Component<
       return
     }
 
+    const location = parseSshRepositoryPath(this.props.repository.path)
+    const remotePath =
+      parseSshRepositoryPath(fullPath)?.path ??
+      (__WIN32__ ? fullPath.replace(/\\/g, '/') : fullPath)
+    const targetPath =
+      location === null
+        ? fullPath
+        : remotePath.startsWith('/') || remotePath.startsWith('~')
+        ? formatSshRepositoryPath({ ...location, path: remotePath })
+        : resolveRepositoryPath(this.props.repository.path, remotePath)
+
     const effectiveBranchName = this.getEffectiveBranchName()
 
     this.setState({ creating: true })
@@ -93,18 +109,18 @@ export class AddWorktreeDialog extends React.Component<
     try {
       if (branch?.type === BranchType.Remote) {
         // Remote branch: create a new local branch from the remote ref
-        await addWorktree(this.props.repository, fullPath, {
+        await addWorktree(this.props.repository, targetPath, {
           createBranch: branch.nameWithoutRemote,
           commitish: branch.ref,
         })
       } else if (branch) {
         // Existing local branch: check it out in the new worktree
-        await addWorktree(this.props.repository, fullPath, {
+        await addWorktree(this.props.repository, targetPath, {
           commitish: branch.name,
         })
       } else {
         // New branch: create it in the new worktree
-        await addWorktree(this.props.repository, fullPath, {
+        await addWorktree(this.props.repository, targetPath, {
           createBranch: effectiveBranchName,
         })
       }
@@ -116,7 +132,7 @@ export class AddWorktreeDialog extends React.Component<
 
     const { dispatcher, repository } = this.props
     const worktrees = await listWorktrees(repository)
-    const worktree = worktrees.find(wt => wt.path === fullPath)
+    const worktree = worktrees.find(wt => wt.path === targetPath)
 
     if (!worktree) {
       this.props.dispatcher.postError(

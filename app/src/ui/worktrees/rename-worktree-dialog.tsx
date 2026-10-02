@@ -1,7 +1,8 @@
 import * as React from 'react'
-import * as Path from 'path'
 
 import { Repository } from '../../models/repository'
+import { getWorktreeDisplayName } from '../../models/worktree'
+import { joinRepositoryPath } from '../../lib/ssh/ssh-path'
 import { Dispatcher } from '../dispatcher'
 import { Dialog, DialogContent, DialogFooter } from '../dialog'
 import { TextBox } from '../lib/text-box'
@@ -27,7 +28,7 @@ export class RenameWorktreeDialog extends React.Component<
     super(props)
 
     this.state = {
-      newName: Path.basename(props.worktreePath),
+      newName: getWorktreeDisplayName({ path: props.worktreePath }),
       renaming: false,
     }
   }
@@ -39,7 +40,7 @@ export class RenameWorktreeDialog extends React.Component<
   private onSubmit = async () => {
     const { worktreePath, repository, onDismissed } = this.props
     const { newName } = this.state
-    const newPath = Path.join(Path.dirname(worktreePath), newName)
+    const newPath = joinRepositoryPath(worktreePath, '..', newName)
 
     this.setState({ renaming: true })
 
@@ -57,7 +58,9 @@ export class RenameWorktreeDialog extends React.Component<
   }
 
   public render() {
-    const currentName = Path.basename(this.props.worktreePath)
+    const currentName = getWorktreeDisplayName({
+      path: this.props.worktreePath,
+    })
     const disabled =
       this.state.newName.length === 0 ||
       this.state.newName === currentName ||

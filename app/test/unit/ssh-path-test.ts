@@ -113,6 +113,30 @@ describe('ssh repository paths', () => {
     assert.equal(parseSshRepositoryPath(formatted)?.path, '~/path/to/repo')
   })
 
+  it('preserves literal #, ?, and % in remote filenames', () => {
+    const location = {
+      host: 'build-box',
+      user: 'darren',
+      port: 2222,
+      path: '/srv/worktree #?%name',
+    }
+    const formatted = formatSshRepositoryPath(location)
+    assert.equal(
+      formatted,
+      'ssh://darren@build-box:2222/srv/worktree %23%3F%25name'
+    )
+    assert.deepEqual(parseSshRepositoryPath(formatted), location)
+    assert.equal(canonicalizeSshRepositoryPath(formatted), formatted)
+    assert.equal(
+      parseSshRepositoryPath(joinRepositoryPath(formatted, '.git'))?.path,
+      `${location.path}/.git`
+    )
+    assert.equal(
+      parseSshRepositoryPath(resolveRepositoryPath(formatted, '.git'))?.path,
+      `${location.path}/.git`
+    )
+  })
+
   it('joins and resolves remote POSIX paths without using win32 separators', () => {
     const root = 'ssh://host/path/to/repo'
     assert.equal(

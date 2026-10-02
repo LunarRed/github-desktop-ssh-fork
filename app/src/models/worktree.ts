@@ -1,4 +1,5 @@
 import * as Path from 'path'
+import { parseSshRepositoryPath } from '../lib/ssh/ssh-path'
 import { shortenSHA } from './commit'
 
 export type WorktreeType = 'main' | 'linked'
@@ -15,8 +16,13 @@ export type WorktreeEntry = {
 }
 
 /** The display name for a worktree (the basename of its path). */
-export function getWorktreeDisplayName(worktree: WorktreeEntry): string {
-  return Path.basename(worktree.path)
+export function getWorktreeDisplayName(
+  worktree: Pick<WorktreeEntry, 'path'>
+): string {
+  const location = parseSshRepositoryPath(worktree.path)
+  return location === null
+    ? Path.basename(worktree.path)
+    : Path.posix.basename(location.path)
 }
 
 /**

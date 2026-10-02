@@ -159,7 +159,9 @@ export function formatSshRepositoryPath(
     ? location.path
     : `/${location.path}`
 
-  return `ssh://${user}${location.host}${port}${path}`
+  // Escape URL delimiters and stripped whitespace while keeping spaces readable.
+  const escapedPath = path.replace(/[%?#\r\n\t]/g, encodeURIComponent)
+  return `ssh://${user}${location.host}${port}${escapedPath}`
 }
 
 /** Human-readable `host:/path` (or `user@host:/path`) form. */
