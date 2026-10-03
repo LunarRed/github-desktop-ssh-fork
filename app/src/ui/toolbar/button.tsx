@@ -28,8 +28,8 @@ export interface IToolbarButtonProps {
   /** The tooltip for the button. */
   readonly tooltip?: string
 
-  /** An optional symbol to be displayed next to the button text */
-  readonly icon?: OcticonSymbol
+  /** An optional symbol or element to display next to the button text */
+  readonly icon?: OcticonSymbol | JSX.Element
 
   /** The class name for the icon element. */
   readonly iconClassName?: string
@@ -173,9 +173,16 @@ export class ToolbarButton extends React.Component<IToolbarButtonProps, {}> {
 
   public render() {
     const { tooltip } = this.props
-    const icon = this.props.icon ? (
+    const icon = React.isValidElement(this.props.icon) ? (
+      <span
+        className={classNames('icon', this.props.iconClassName)}
+        aria-hidden="true"
+      >
+        {this.props.icon}
+      </span>
+    ) : this.props.icon ? (
       <Octicon
-        symbol={this.props.icon}
+        symbol={this.props.icon as OcticonSymbol}
         className={classNames('icon', this.props.iconClassName)}
       />
     ) : null

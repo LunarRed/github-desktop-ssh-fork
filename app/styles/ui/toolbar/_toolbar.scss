@@ -33,6 +33,33 @@
     }
   }
 
+  &:has(.remote-repository) {
+    height: auto;
+    min-height: var(--toolbar-height);
+
+    .toolbar-button.resizable {
+      max-height: none;
+    }
+
+    .remote-repository > .toolbar-button {
+      height: auto;
+
+      & > button {
+        height: auto;
+
+        .description {
+          white-space: normal;
+          overflow-wrap: anywhere;
+          overflow: visible;
+        }
+      }
+    }
+  }
+
+  .remote-repository .ssh-repository-globe {
+    color: var(--link-button-color);
+  }
+
   .toolbar-button {
     &.resizable {
       // Fill the available height of the parent

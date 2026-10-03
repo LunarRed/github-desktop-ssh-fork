@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { isIPv4 } from 'net'
 
 import { TransitionGroup, CSSTransition } from 'react-transition-group'
 import {
@@ -36,6 +37,7 @@ import {
   fileSystemFor,
   repositoryFilePath,
 } from '../lib/repository-file-system'
+import { parseSshRepositoryPath } from '../lib/ssh/ssh-path'
 import { Branch } from '../models/branch'
 import { PreferencesTab } from '../models/preferences'
 import { findItemByAccessKey, itemIsSelectable } from '../models/app-menu'
@@ -47,6 +49,7 @@ import { CloningRepository } from '../models/cloning-repository'
 import { TitleBar, ZoomInfo, FullScreenInfo } from './window'
 
 import { RepositoriesList } from './repositories-list'
+import { SshRepositoryIcon } from './repositories-list/ssh-repository-icon'
 import { RepositoryView } from './repository'
 import { RenameBranch } from './rename-branch'
 import { DeleteBranch, DeleteRemoteBranch } from './delete-branch'
@@ -3480,12 +3483,34 @@ export class App extends React.Component<IAppProps, IAppState> {
     const selection = this.state.selectedState
 
     const repository = selection ? selection.repository : null
+    const sshLocation = repository
+      ? parseSshRepositoryPath(repository.path)
+      : null
 
-    let icon: OcticonSymbol
+    let description = __DARWIN__ ? 'Current Repository' : 'Current repository'
+    if (repository) {
+      let computer = __DARWIN__ ? 'This Mac' : 'This Computer'
+      if (sshLocation) {
+        const host = sshLocation.host
+        const displayHost =
+          isIPv4(host) || host.includes(':') ? host : host.split('.')[0]
+        computer = `${displayHost} · SSH`
+      }
+      description = `${description}: ${computer}`
+    }
+
+    let icon: OcticonSymbol | JSX.Element
     let title: string
     if (repository) {
       const alias = repository instanceof Repository ? repository.alias : null
-      icon = iconForRepository(repository)
+      icon =
+        sshLocation &&
+        repository instanceof Repository &&
+        !repository.missing ? (
+          <SshRepositoryIcon host={sshLocation.host} />
+        ) : (
+          iconForRepository(repository)
+        )
       title = alias ?? repository.name
     } else if (this.state.repositories.length > 0) {
       icon = octicons.repo
@@ -3521,9 +3546,10 @@ export class App extends React.Component<IAppProps, IAppState> {
 
     return (
       <ToolbarDropdown
+        className={sshLocation ? 'remote-repository' : undefined}
         icon={icon}
         title={title}
-        description={__DARWIN__ ? 'Current Repository' : 'Current repository'}
+        description={description}
         tooltip={tooltip}
         foldoutStyle={foldoutStyle}
         onContextMenu={this.onRepositoryToolbarButtonContextMenu}
